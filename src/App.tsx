@@ -8,7 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 export default function App() {
  return (
   <div className="min-h-screen">
-   <main className="py-6">
+   <main >
     <Routes>
      <Route
       path="/"

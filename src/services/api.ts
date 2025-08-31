@@ -35,6 +35,17 @@ export const login = async (data: {email: string; password: string}) => {
  return res.data;
 };
 
+// --- OTP Auth API ---
+export const requestOtp = async (data: {email: string}) => {
+ const res = await api.post("/api/auth/request-otp", data);
+ return res.data;
+};
+
+export const loginWithOtp = async (data: {email: string; otp: string}) => {
+ const res = await api.post("/api/auth/login", data);
+ return res.data;
+};
+
 export default api;
 
 // --- Notes API ---
@@ -43,12 +54,15 @@ export const getAllNotes = async () => {
  return res.data;
 };
 
-export const createNote = async (data: {content: string}) => {
+export const createNote = async (data: {heading: string; content: string}) => {
  const res = await api.post("/api/notes", data);
  return res.data;
 };
 
-export const updateNote = async (id: string, data: {content: string}) => {
+export const updateNote = async (
+ id: string,
+ data: {heading: string; content: string}
+) => {
  const res = await api.put(`/api/notes/${id}`, data);
  return res.data;
 };

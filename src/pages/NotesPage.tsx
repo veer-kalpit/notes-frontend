@@ -1,21 +1,28 @@
-import {Trash} from "lucide-react";
+import {Trash, ArrowLeft} from "lucide-react";
 import {useEffect, useState} from "react";
 import {getAllNotes, createNote, updateNote, deleteNote} from "../services/api";
+import RichTextEditor from "../components/RichTextEditor";
 
 type Note = {
  _id: string;
- text: string;
+ heading: string;
+ content: string;
 };
 
 const Dashboard = () => {
  const [notes, setNotes] = useState<Note[]>([]);
- const [editingId, setEditingId] = useState<string | null>(null);
- const [editText, setEditText] = useState<string>("");
- const [updating, setUpdating] = useState(false);
+ const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+ const [editing, setEditing] = useState(false);
+ const [editHeading, setEditHeading] = useState("");
+ const [editContent, setEditContent] = useState("");
  const [loading, setLoading] = useState(false);
- const [newNote, setNewNote] = useState("");
- const [creating, setCreating] = useState(false);
  const [error, setError] = useState("");
+
+ // New note creation states
+ const [adding, setAdding] = useState(false);
+ const [newHeading, setNewHeading] = useState("");
+ const [newContent, setNewContent] = useState("");
+ const [creating, setCreating] = useState(false);
 
  useEffect(() => {
   fetchNotes();
@@ -32,7 +39,8 @@ const Dashboard = () => {
     Array.isArray(notesArray)
      ? notesArray.map((n: any) => ({
         _id: n._id,
-        text: n.text || n.content || "",
+        heading: n.heading || "Untitled",
+        content: n.content || "",
        }))
      : []
    );
@@ -44,21 +52,27 @@ const Dashboard = () => {
  };
 
  const handleCreateNote = async () => {
-  if (!newNote.trim()) return;
+  if (!newHeading.trim() || !newContent.trim()) return;
   setCreating(true);
   setError("");
   try {
-   const created = await createNote({content: newNote.trim()});
+   const created = await createNote({
+    heading: newHeading.trim(),
+    content: newContent.trim(),
+   });
    const note = created?.note || created;
 
-   setNotes((prev) => [
-    {
-     _id: note?._id || Math.random().toString(),
-     text: note?.text || note?.content || newNote.trim(),
-    },
-    ...prev,
-   ]);
-   setNewNote("");
+   const newNoteObj: Note = {
+    _id: note?._id || Math.random().toString(),
+    heading: note?.heading || newHeading.trim(),
+    content: note?.content || newContent.trim(),
+   };
+
+   setNotes((prev) => [newNoteObj, ...prev]);
+   setSelectedNote(newNoteObj);
+   setNewHeading("");
+   setNewContent("");
+   setAdding(false);
   } catch {
    setError("Failed to create note");
   } finally {
@@ -71,40 +85,34 @@ const Dashboard = () => {
   try {
    await deleteNote(id);
    setNotes((prev) => prev.filter((n) => n._id !== id));
+   if (selectedNote?._id === id) setSelectedNote(null);
   } catch {
    setError("Failed to delete note");
   }
  };
 
- const handleEditNote = (id: string, text: string) => {
-  setEditingId(id);
-  setEditText(text);
- };
-
- const handleUpdateNote = async (id: string) => {
-  if (!editText.trim()) return;
-  setUpdating(true);
-  setError("");
+ const handleSaveEdit = async () => {
+  if (!selectedNote || !editHeading.trim() || !editContent.trim()) return;
   try {
-   const updated = await updateNote(id, {content: editText.trim()});
+   const updated = await updateNote(selectedNote._id, {
+    heading: editHeading.trim(),
+    content: editContent.trim(),
+   });
    const note = updated?.note || updated;
 
+   const updatedNote: Note = {
+    ...selectedNote,
+    heading: note?.heading || editHeading.trim(),
+    content: note?.content || editContent.trim(),
+   };
+
    setNotes((prev) =>
-    prev.map((n) =>
-     n._id === id
-      ? {
-         ...n,
-         text: note?.text || note?.content || editText.trim(),
-        }
-      : n
-    )
+    prev.map((n) => (n._id === selectedNote._id ? updatedNote : n))
    );
-   setEditingId(null);
-   setEditText("");
+   setSelectedNote(updatedNote);
+   setEditing(false);
   } catch {
    setError("Failed to update note");
-  } finally {
-   setUpdating(false);
   }
  };
 
@@ -113,11 +121,13 @@ const Dashboard = () => {
    {/* Header */}
    <div className="flex justify-between items-center mb-6">
     <div className="flex items-center gap-2">
-     <div className="w-6 h-6 rounded-full border-4 border-blue-500 animate-spin"></div>
-     <span className="font-semibold text-lg">Dashboard</span>
+     <div className="w-8 h-8 rounded-full">
+      <img src="/logo.png" alt="logo" />
+     </div>
+     <span className="font-bold text-[30px]">Dashboard</span>
     </div>
     <button
-     className="text-blue-500 font-medium text-sm bg-transparent border-none outline-none cursor-pointer"
+     className="text-blue-500 font-medium text-sm"
      onClick={() => {
       localStorage.clear();
       window.location.reload();
@@ -127,9 +137,9 @@ const Dashboard = () => {
     </button>
    </div>
 
-   {/* Welcome Box */}
-   <div className="bg-gray-100 p-4 rounded-lg shadow-sm mb-6">
-    <h2 className="text-lg font-semibold">
+   {/* Welcome */}
+   <div className="bg-gray-100 p-4 rounded-lg mb-6 border border-[#D9D9D9] shadow">
+    <h2 className="text-2xl font-bold">
      Welcome, {localStorage.getItem("name") || "User"} !
     </h2>
     <p className="text-gray-500 text-sm">
@@ -137,94 +147,263 @@ const Dashboard = () => {
     </p>
    </div>
 
-   {/* Create Note Input */}
-   <div className="flex gap-2 mb-4">
-    <input
-     className="flex-1 border rounded-md px-3 py-2"
-     placeholder="Write a note..."
-     value={newNote}
-     onChange={(e) => setNewNote(e.target.value)}
-     onKeyDown={(e) => {
-      if (e.key === "Enter") handleCreateNote();
-     }}
-     disabled={creating}
-    />
-    <button
-     className="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition"
-     onClick={handleCreateNote}
-     disabled={creating}
-    >
-     {creating ? "Adding..." : "Add"}
-    </button>
-   </div>
-
-   {/* Error */}
    {error && <div className="text-red-500 mb-2">{error}</div>}
 
-   {/* Notes List */}
-   <div className="space-y-3">
-    {loading ? (
-     <div>Loading notes...</div>
-    ) : notes.length === 0 ? (
-     <div className="text-gray-400">No notes yet.</div>
-    ) : (
-     notes.map((note) => (
-      <div
-       key={note._id}
-       className="flex justify-between items-center bg-gray-100 p-3 rounded-md shadow-sm"
-      >
-       {editingId === note._id ? (
-        <>
-         <input
-          className="flex-1 border rounded-md px-2 py-1 mr-2"
-          value={editText}
-          onChange={(e) => setEditText(e.target.value)}
-          onKeyDown={(e) => {
-           if (e.key === "Enter") handleUpdateNote(note._id);
-           if (e.key === "Escape") {
-            setEditingId(null);
-            setEditText("");
-           }
-          }}
-          disabled={updating}
-          autoFocus
-          placeholder="Edit note"
-          title="Edit note"
-         />
+   {/* Desktop: Two-column layout */}
+   <div className="hidden md:grid grid-cols-2 gap-6">
+    {/* Left */}
+    <div className="bg-gray-50 p-4 rounded-lg shadow-sm h-[70vh] overflow-y-auto flex flex-col">
+     <button
+      className="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 mb-4"
+      onClick={() => {
+       setAdding(true);
+       setSelectedNote(null);
+       setEditing(false);
+       setNewHeading("");
+       setNewContent("");
+      }}
+     >
+      Add Note
+     </button>
+
+     {loading ? (
+      <div>Loading notes...</div>
+     ) : notes.length === 0 ? (
+      <div className="text-gray-400">No notes yet.</div>
+     ) : (
+      notes.map((note) => (
+       <div
+        key={note._id}
+        onClick={() => {
+         setSelectedNote(note);
+         setEditing(false);
+         setAdding(false);
+        }}
+        className={`flex justify-between items-center p-3 rounded-md cursor-pointer mb-2 ${
+         selectedNote?._id === note._id
+          ? "bg-blue-100 border border-blue-400"
+          : "bg-white hover:bg-gray-100"
+        }`}
+       >
+        <span className="truncate font-semibold">{note.heading}</span>
+        <Trash
+         className="w-4 h-4 text-gray-500 hover:text-red-500 ml-2"
+         onClick={(e) => {
+          e.stopPropagation();
+          handleDeleteNote(note._id);
+         }}
+        />
+       </div>
+      ))
+     )}
+    </div>
+
+    {/* Right */}
+    <div className="bg-gray-50 p-4 rounded-lg shadow-sm h-[70vh]">
+     {adding ? (
+      <div className="flex flex-col h-full">
+       <input
+        className="border rounded-md px-3 py-2 mb-3"
+        placeholder="Note heading..."
+        value={newHeading}
+        onChange={(e) => setNewHeading(e.target.value)}
+        disabled={creating}
+       />
+       <RichTextEditor content={newContent} onChange={setNewContent} />
+       <div className="flex gap-2 mt-3">
+        <button
+         className="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600"
+         onClick={handleCreateNote}
+         disabled={creating}
+        >
+         {creating ? "Saving..." : "Save"}
+        </button>
+        <button
+         className="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400"
+         onClick={() => setAdding(false)}
+        >
+         Cancel
+        </button>
+       </div>
+      </div>
+     ) : selectedNote ? (
+      editing ? (
+       <div className="flex flex-col h-full">
+        <input
+         className="border rounded-md px-3 py-2 mb-3"
+         value={editHeading}
+         onChange={(e) => setEditHeading(e.target.value)}
+         placeholder="Edit heading..."
+        />
+        <RichTextEditor content={editContent} onChange={setEditContent} />
+        <div className="flex gap-2 mt-3">
          <button
-          className="bg-green-500 text-white px-2 py-1 rounded mr-1 text-xs font-semibold hover:bg-green-600"
-          onClick={() => handleUpdateNote(note._id)}
-          disabled={updating}
+          className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
+          onClick={handleSaveEdit}
          >
-          {updating ? "Saving..." : "Save"}
+          Save
          </button>
          <button
-          className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs font-semibold hover:bg-gray-400"
-          onClick={() => {
-           setEditingId(null);
-           setEditText("");
-          }}
-          disabled={updating}
+          className="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400"
+          onClick={() => setEditing(false)}
          >
           Cancel
          </button>
-        </>
-       ) : (
-        <>
-         <span
-          className="flex-1 cursor-pointer"
-          onClick={() => handleEditNote(note._id, note.text)}
-         >
-          {note.text}
-         </span>
-         <Trash
-          className="w-4 h-4 text-gray-500 cursor-pointer hover:text-red-500 ml-2"
-          onClick={() => handleDeleteNote(note._id)}
-         />
-        </>
-       )}
+        </div>
+       </div>
+      ) : (
+       <div className="flex flex-col h-full overflow-hidden">
+        <h3 className="text-xl font-bold mb-2">{selectedNote.heading}</h3>
+        <div
+         className="flex-1 prose max-w-none overflow-y-auto break-words whitespace-pre-wrap pr-2"
+         dangerouslySetInnerHTML={{__html: selectedNote.content}}
+        />
+        <button
+         className="bg-blue-500 text-white px-4 py-2 rounded-md mt-4 hover:bg-blue-600"
+         onClick={() => {
+          setEditing(true);
+          setEditHeading(selectedNote.heading);
+          setEditContent(selectedNote.content);
+         }}
+        >
+         Edit
+        </button>
+       </div>
+      )
+     ) : (
+      <div className="text-gray-400 flex items-center justify-center h-full">
+       Select a note or click "Add Note"
       </div>
-     ))
+     )}
+    </div>
+   </div>
+
+   {/* Mobile: Single-column flow */}
+   <div className="md:hidden">
+    {selectedNote ? (
+     <div className="bg-gray-50 p-4 rounded-lg shadow-sm min-h-[70vh] flex flex-col">
+      <button
+       className="flex items-center gap-1 text-sm text-blue-500 mb-3"
+       onClick={() => {
+        setSelectedNote(null);
+        setEditing(false);
+       }}
+      >
+       <ArrowLeft className="w-4 h-4" /> Back
+      </button>
+
+      {editing ? (
+       <div className="flex flex-col h-full">
+        <input
+         className="border rounded-md px-3 py-2 mb-3"
+         value={editHeading}
+         onChange={(e) => setEditHeading(e.target.value)}
+         placeholder="Edit heading..."
+        />
+        <RichTextEditor content={editContent} onChange={setEditContent} />
+        <div className="flex gap-2 mt-3">
+         <button
+          className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
+          onClick={handleSaveEdit}
+         >
+          Save
+         </button>
+         <button
+          className="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400"
+          onClick={() => setEditing(false)}
+         >
+          Cancel
+         </button>
+        </div>
+       </div>
+      ) : (
+       <>
+        <h3 className="text-xl font-bold mb-2">{selectedNote.heading}</h3>
+        <div
+         className="flex-1 prose max-w-none overflow-y-auto break-words whitespace-pre-wrap pr-2"
+         dangerouslySetInnerHTML={{__html: selectedNote.content}}
+        />
+        <button
+         className="bg-blue-500 text-white px-4 py-2 rounded-md mt-4 hover:bg-blue-600"
+         onClick={() => {
+          setEditing(true);
+          setEditHeading(selectedNote.heading);
+          setEditContent(selectedNote.content);
+         }}
+        >
+         Edit
+        </button>
+       </>
+      )}
+     </div>
+    ) : (
+     <div className="bg-gray-50 p-4 rounded-lg shadow-sm min-h-[70vh] flex flex-col">
+      <button
+       className="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 mb-4"
+       onClick={() => {
+        setAdding(true);
+        setSelectedNote(null);
+        setEditing(false);
+        setNewHeading("");
+        setNewContent("");
+       }}
+      >
+       Add Note
+      </button>
+
+      {adding ? (
+       <div className="flex flex-col h-full">
+        <input
+         className="border rounded-md px-3 py-2 mb-3"
+         placeholder="Note heading..."
+         value={newHeading}
+         onChange={(e) => setNewHeading(e.target.value)}
+         disabled={creating}
+        />
+        <RichTextEditor content={newContent} onChange={setNewContent} />
+        <div className="flex gap-2 mt-3">
+         <button
+          className="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600"
+          onClick={handleCreateNote}
+          disabled={creating}
+         >
+          {creating ? "Saving..." : "Save"}
+         </button>
+         <button
+          className="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400"
+          onClick={() => setAdding(false)}
+         >
+          Cancel
+         </button>
+        </div>
+       </div>
+      ) : loading ? (
+       <div>Loading notes...</div>
+      ) : notes.length === 0 ? (
+       <div className="text-gray-400">No notes yet.</div>
+      ) : (
+       notes.map((note) => (
+        <div
+         key={note._id}
+         onClick={() => {
+          setSelectedNote(note);
+          setEditing(false);
+          setAdding(false);
+         }}
+         className="flex justify-between items-center p-3 rounded-md cursor-pointer mb-2 bg-white hover:bg-gray-100"
+        >
+         <span className="truncate font-semibold">{note.heading}</span>
+         <Trash
+          className="w-4 h-4 text-gray-500 hover:text-red-500 ml-2"
+          onClick={(e) => {
+           e.stopPropagation();
+           handleDeleteNote(note._id);
+          }}
+         />
+        </div>
+       ))
+      )}
+     </div>
     )}
    </div>
   </div>
