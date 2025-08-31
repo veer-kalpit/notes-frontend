@@ -118,7 +118,7 @@ const SignUp = () => {
        disabled={otpSent}
       />
      </div>
-     ;{/* Email */}
+     {/* Email */}
      <div className="relative">
       <label
        htmlFor="email"

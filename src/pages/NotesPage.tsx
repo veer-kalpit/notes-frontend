@@ -28,14 +28,14 @@ const Dashboard = () => {
    const data = await getAllNotes();
    const notesArray = Array.isArray(data?.notes) ? data.notes : data;
 
-  setNotes(
-   Array.isArray(notesArray)
-    ? notesArray.map((n: any) => ({
-       _id: n._id,
-       text: n.text || n.content || "",
-      }))
-    : []
-  );
+   setNotes(
+    Array.isArray(notesArray)
+     ? notesArray.map((n: any) => ({
+        _id: n._id,
+        text: n.text || n.content || "",
+       }))
+     : []
+   );
   } catch {
    setError("Failed to load notes");
   } finally {
@@ -116,15 +116,25 @@ const Dashboard = () => {
      <div className="w-6 h-6 rounded-full border-4 border-blue-500 animate-spin"></div>
      <span className="font-semibold text-lg">Dashboard</span>
     </div>
-    <a href="#" className="text-blue-500 font-medium text-sm">
+    <button
+     className="text-blue-500 font-medium text-sm bg-transparent border-none outline-none cursor-pointer"
+     onClick={() => {
+      localStorage.clear();
+      window.location.reload();
+     }}
+    >
      Sign Out
-    </a>
+    </button>
    </div>
 
    {/* Welcome Box */}
    <div className="bg-gray-100 p-4 rounded-lg shadow-sm mb-6">
-    <h2 className="text-lg font-semibold">Welcome, Jonas Khanwald !</h2>
-    <p className="text-gray-500 text-sm">Email: xxxxxx@xxxx.com</p>
+    <h2 className="text-lg font-semibold">
+     Welcome, {localStorage.getItem("name") || "User"} !
+    </h2>
+    <p className="text-gray-500 text-sm">
+     Email: {localStorage.getItem("email") || "unknown"}
+    </p>
    </div>
 
    {/* Create Note Input */}

@@ -34,7 +34,9 @@ const SignIn = () => {
       try {
        const res = await login({email, password});
        if (res?.success) {
-        localStorage.setItem("Idtoken", res.token);
+        localStorage.setItem("token", res.token);
+        if (res.name) localStorage.setItem("name", res.name);
+        if (res.email) localStorage.setItem("email", res.email);
         navigate("/");
        } else {
         setError(res?.message || "Invalid credentials");
@@ -66,6 +68,7 @@ const SignIn = () => {
       <input
        id="email"
        type="email"
+       placeholder="Enter your email"
        value={email}
        onChange={(e) => setEmail(e.target.value)}
        className="w-[399px] border border-[#D9D9D9] rounded-xl px-4 py-3 bg-transparent text-black"
