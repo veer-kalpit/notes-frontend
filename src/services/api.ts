@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const API_URL =
- (import.meta.env.VITE_API_URL as string) || "http://localhost:8080/";
+ (import.meta.env.VITE_API_URL as string) ||
+ "https://notes-backend-1015851813434.europe-west1.run.app/";
 
 const api = axios.create({baseURL: API_URL, timeout: 10000});
 
