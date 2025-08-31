@@ -44,9 +44,7 @@ export const sendMagicLinkToEmail = async (email: string) => {
  window.localStorage.setItem("emailForSignIn", email);
 };
 
-/**
- * Try complete email link sign-in on page load
- */
+
 export const tryCompleteEmailSignIn = async () => {
  if (isSignInWithEmailLink(auth, window.location.href)) {
   const email =

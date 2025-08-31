@@ -1,121 +1,224 @@
-// src/pages/NotesPage.tsx
-import  {useEffect, useState} from "react";
-import {
- getNotes,
- createNote as createNoteApi,
- deleteNote as deleteNoteApi,
-} from "../services/api";
-import useAuth from "../hooks/useAuth";
-import {useNavigate} from "react-router-dom";
+import {Trash} from "lucide-react";
+import {useEffect, useState} from "react";
+import {getAllNotes, createNote, updateNote, deleteNote} from "../services/api";
 
-interface Note {
+type Note = {
  _id: string;
  text: string;
- createdAt: string;
-}
+};
 
-export default function NotesPage() {
- const {user, loading} = useAuth();
- const navigate = useNavigate();
+const Dashboard = () => {
  const [notes, setNotes] = useState<Note[]>([]);
- const [text, setText] = useState("");
- const [error, setError] = useState<string | null>(null);
- const [busy, setBusy] = useState(false);
+ const [editingId, setEditingId] = useState<string | null>(null);
+ const [editText, setEditText] = useState<string>("");
+ const [updating, setUpdating] = useState(false);
+ const [loading, setLoading] = useState(false);
+ const [newNote, setNewNote] = useState("");
+ const [creating, setCreating] = useState(false);
+ const [error, setError] = useState("");
 
  useEffect(() => {
-  if (!loading && !user) navigate("/auth");
- }, [user, loading, navigate]);
-
- useEffect(() => {
-  if (user) fetchNotes();
- }, [user]);
+  fetchNotes();
+ }, []);
 
  const fetchNotes = async () => {
+  setLoading(true);
+  setError("");
   try {
-   setBusy(true);
-   const data = await getNotes();
-   setNotes(data);
-  } catch (err: any) {
-   setError(err.response?.data?.error || "Failed to fetch notes");
+   const data = await getAllNotes();
+   const notesArray = Array.isArray(data?.notes) ? data.notes : data;
+
+  setNotes(
+   Array.isArray(notesArray)
+    ? notesArray.map((n: any) => ({
+       _id: n._id,
+       text: n.text || n.content || "",
+      }))
+    : []
+  );
+  } catch {
+   setError("Failed to load notes");
   } finally {
-   setBusy(false);
+   setLoading(false);
   }
  };
 
- const createNote = async () => {
-  if (!text.trim()) return setError("Note cannot be empty");
+ const handleCreateNote = async () => {
+  if (!newNote.trim()) return;
+  setCreating(true);
+  setError("");
   try {
-   setError(null);
-   await createNoteApi(text.trim());
-   setText("");
-   await fetchNotes();
-  } catch (err: any) {
-   setError(err.response?.data?.error || "Failed to create note");
+   const created = await createNote({content: newNote.trim()});
+   const note = created?.note || created;
+
+   setNotes((prev) => [
+    {
+     _id: note?._id || Math.random().toString(),
+     text: note?.text || note?.content || newNote.trim(),
+    },
+    ...prev,
+   ]);
+   setNewNote("");
+  } catch {
+   setError("Failed to create note");
+  } finally {
+   setCreating(false);
   }
  };
 
- const deleteNote = async (id: string) => {
+ const handleDeleteNote = async (id: string) => {
+  setError("");
   try {
-   await deleteNoteApi(id);
-   setNotes((s) => s.filter((n) => n._id !== id));
-  } catch (err: any) {
-   setError(err.response?.data?.error || "Failed to delete note");
+   await deleteNote(id);
+   setNotes((prev) => prev.filter((n) => n._id !== id));
+  } catch {
+   setError("Failed to delete note");
+  }
+ };
+
+ const handleEditNote = (id: string, text: string) => {
+  setEditingId(id);
+  setEditText(text);
+ };
+
+ const handleUpdateNote = async (id: string) => {
+  if (!editText.trim()) return;
+  setUpdating(true);
+  setError("");
+  try {
+   const updated = await updateNote(id, {content: editText.trim()});
+   const note = updated?.note || updated;
+
+   setNotes((prev) =>
+    prev.map((n) =>
+     n._id === id
+      ? {
+         ...n,
+         text: note?.text || note?.content || editText.trim(),
+        }
+      : n
+    )
+   );
+   setEditingId(null);
+   setEditText("");
+  } catch {
+   setError("Failed to update note");
+  } finally {
+   setUpdating(false);
   }
  };
 
  return (
-  <div className="max-w-4xl mx-auto p-4">
-   <div className="bg-white rounded-lg shadow p-4 mb-4">
-    <div className="flex flex-col sm:flex-row gap-2">
-     <input
-      className="flex-1 border rounded px-3 py-2"
-      placeholder="Write a quick note..."
-      value={text}
-      onChange={(e) => setText(e.target.value)}
-      onKeyDown={(e) => e.key === "Enter" && createNote()}
-     />
-     <button
-      onClick={createNote}
-      className="bg-blue-600 text-white px-4 rounded"
-     >
-      Add
-     </button>
+  <div className="min-h-screen bg-white p-4">
+   {/* Header */}
+   <div className="flex justify-between items-center mb-6">
+    <div className="flex items-center gap-2">
+     <div className="w-6 h-6 rounded-full border-4 border-blue-500 animate-spin"></div>
+     <span className="font-semibold text-lg">Dashboard</span>
     </div>
-    {error && <div className="mt-2 text-red-500">{error}</div>}
+    <a href="#" className="text-blue-500 font-medium text-sm">
+     Sign Out
+    </a>
    </div>
 
-   <div>
-    <h2 className="text-lg font-semibold mb-2">My Notes</h2>
-    {busy ? (
-     <div className="text-slate-500">Loading...</div>
+   {/* Welcome Box */}
+   <div className="bg-gray-100 p-4 rounded-lg shadow-sm mb-6">
+    <h2 className="text-lg font-semibold">Welcome, Jonas Khanwald !</h2>
+    <p className="text-gray-500 text-sm">Email: xxxxxx@xxxx.com</p>
+   </div>
+
+   {/* Create Note Input */}
+   <div className="flex gap-2 mb-4">
+    <input
+     className="flex-1 border rounded-md px-3 py-2"
+     placeholder="Write a note..."
+     value={newNote}
+     onChange={(e) => setNewNote(e.target.value)}
+     onKeyDown={(e) => {
+      if (e.key === "Enter") handleCreateNote();
+     }}
+     disabled={creating}
+    />
+    <button
+     className="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition"
+     onClick={handleCreateNote}
+     disabled={creating}
+    >
+     {creating ? "Adding..." : "Add"}
+    </button>
+   </div>
+
+   {/* Error */}
+   {error && <div className="text-red-500 mb-2">{error}</div>}
+
+   {/* Notes List */}
+   <div className="space-y-3">
+    {loading ? (
+     <div>Loading notes...</div>
     ) : notes.length === 0 ? (
-     <div className="text-slate-400">No notes yet — add your first.</div>
+     <div className="text-gray-400">No notes yet.</div>
     ) : (
-     <ul className="space-y-3">
-      {notes.map((n) => (
-       <li
-        key={n._id}
-        className="bg-white rounded p-3 shadow-sm flex items-start justify-between"
-       >
-        <div>
-         <div className="text-slate-800">{n.text}</div>
-         <div className="text-xs text-slate-400 mt-1">
-          {new Date(n.createdAt).toLocaleString()}
-         </div>
-        </div>
-        <div className="flex-shrink-0 ml-4">
+     notes.map((note) => (
+      <div
+       key={note._id}
+       className="flex justify-between items-center bg-gray-100 p-3 rounded-md shadow-sm"
+      >
+       {editingId === note._id ? (
+        <>
+         <input
+          className="flex-1 border rounded-md px-2 py-1 mr-2"
+          value={editText}
+          onChange={(e) => setEditText(e.target.value)}
+          onKeyDown={(e) => {
+           if (e.key === "Enter") handleUpdateNote(note._id);
+           if (e.key === "Escape") {
+            setEditingId(null);
+            setEditText("");
+           }
+          }}
+          disabled={updating}
+          autoFocus
+          placeholder="Edit note"
+          title="Edit note"
+         />
          <button
-          onClick={() => deleteNote(n._id)}
-          className="text-red-500 text-sm"
+          className="bg-green-500 text-white px-2 py-1 rounded mr-1 text-xs font-semibold hover:bg-green-600"
+          onClick={() => handleUpdateNote(note._id)}
+          disabled={updating}
          >
-          Delete
+          {updating ? "Saving..." : "Save"}
          </button>
-        </div>
-       </li>
-      ))}
-     </ul>
+         <button
+          className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs font-semibold hover:bg-gray-400"
+          onClick={() => {
+           setEditingId(null);
+           setEditText("");
+          }}
+          disabled={updating}
+         >
+          Cancel
+         </button>
+        </>
+       ) : (
+        <>
+         <span
+          className="flex-1 cursor-pointer"
+          onClick={() => handleEditNote(note._id, note.text)}
+         >
+          {note.text}
+         </span>
+         <Trash
+          className="w-4 h-4 text-gray-500 cursor-pointer hover:text-red-500 ml-2"
+          onClick={() => handleDeleteNote(note._id)}
+         />
+        </>
+       )}
+      </div>
+     ))
     )}
    </div>
   </div>
  );
-}
+};
+
+export default Dashboard;
