@@ -2,7 +2,7 @@ import axios from "axios";
 
 const API_URL =
  (import.meta.env.VITE_API_URL as string) ||
- "https://notes-backend-1015851813434.europe-west1.run.app/";
+ "https://notes-backend-398972678740.asia-south1.run.app";
 
 const api = axios.create({baseURL: API_URL, timeout: 10000});
 
